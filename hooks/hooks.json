@@ -1,0 +1,17 @@
+{
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "php \"${CLAUDE_PLUGIN_ROOT}/hooks/theme-write-guard.php\"",
+                        "timeout": 15,
+                        "statusMessage": "Checking SDD theme write boundary"
+                    }
+                ]
+            }
+        ]
+    }
+}

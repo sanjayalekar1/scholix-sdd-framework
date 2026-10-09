@@ -1,0 +1,13 @@
+{
+    "name": "scholix-sdd-framework",
+    "owner": {
+        "name": "Nxtgen Technosolutions"
+    },
+    "plugins": [
+        {
+            "name": "scholix-sdd",
+            "source": "./",
+            "description": "Spec-driven Scholix theme generation with a hard theme write boundary."
+        }
+    ]
+}

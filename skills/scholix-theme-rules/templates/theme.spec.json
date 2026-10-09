@@ -1,0 +1,68 @@
+{
+    "$schema": "../../../resources/theme-contracts/spec.schema.json",
+    "spec_version": 1,
+    "folder": "{folder}",
+    "key": "{folder}",
+    "name": "{Theme name}",
+    "status": "draft",
+    "owner": "TODO(human)",
+    "identity": {
+        "plans": "TODO(human)",
+        "plan_tier": "TODO(human)",
+        "institution": "TODO(human)",
+        "tone": "",
+        "references": []
+    },
+    "design": {
+        "keywords": [],
+        "density": "TODO(human)",
+        "imagery": "",
+        "motion": "TODO(human)"
+    },
+    "tokens": {
+        "defaults": {},
+        "presets": []
+    },
+    "customization": {
+        "colors": true,
+        "fonts": true,
+        "cta": true,
+        "cta_section": true,
+        "layout": [
+            "layout_style"
+        ],
+        "mega_menu": false
+    },
+    "navigation": {
+        "locations": [
+            "header",
+            "footer",
+            "mobile"
+        ],
+        "styles": [
+            "classic"
+        ],
+        "starter": {
+            "header": []
+        }
+    },
+    "modules": {
+        "unsupported": "TODO(human)"
+    },
+    "home_sections": [],
+    "home_starter": [],
+    "assets": {
+        "js_libraries": "TODO(human)",
+        "icon_set": "",
+        "fonts": [],
+        "budget_kb": {
+            "css": 450,
+            "js": 350
+        }
+    },
+    "accessibility": {
+        "contrast": "TODO(human)",
+        "reduced_motion": "TODO(human)",
+        "focus_visible": true
+    }
+}
