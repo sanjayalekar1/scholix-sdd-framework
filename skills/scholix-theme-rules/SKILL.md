@@ -44,6 +44,7 @@ Everything else is Scholix core and is read-only: `app/`, `routes/`, `config/`, 
     - inline scripts that need a library go in `@push('scripts')`.
 11. Stay within the asset budget (`config('themes.strict.asset_budget_kb')`).
 12. `theme.json` `key` equals the theme folder name (as `theme:make` writes it) and never changes. It is the technical id; the customer-facing name and key are set separately by a human in Super Admin → Themes, so don't name the folder after the marketing name. Tenant settings are stored under it, so it must be unique across all themes. Never copy another theme's key.
+13. Place the platform features tenants turn on in the admin: the language switcher (`themes.shared.language-switcher` with `langToggleClass`/`langIcon`), the WhatsApp button (`themes.shared.whatsapp-button` with the theme's `icon`; set `--sx-wa-right`/`--sx-wa-bottom` to clear the back-to-top button), the notice ticker (`theme_view('layout.notice-ticker')`) and the platform credit (`themes.shared.footer-copyright` or `footer-credit`). Honour `header.show_login_button` and `header.show_top_bar`.
 
 ## Lessons from the existing themes (SDD pilot)
 
@@ -59,6 +60,8 @@ The five existing themes have as-built specs in `specs/themes/{default,theme2,th
 8. **The default CTA must pass AA.** White on coral fails in theme4 and theme5; `theme:spec-lint` checks it.
 9. **A new tenant's first impression is the starter.** On activation, a tenant with no home layout gets `home_starter` and starter header/footer menus (`ThemeStarter`). Sections with no content stay hidden in every theme, so a home section view never needs its own empty state for a missing list.
 10. **Decorations must not collide with shell elements.** The theme5 logo cloud overlaps the notice ticker. Review the screenshots with the ticker on.
+11. **Platform features were missing in three of five themes.** theme3–5 had no language switcher, theme2–5 no WhatsApp button though every admin asks for the number, theme3–5 no platform credit (rule 13). Previews show a second language and the credit, so check the switcher and footer in the screenshots.
+12. **Size the header for the full starter menu.** theme3 and theme4 overflowed between 992 and 1199px with 7 items plus their buttons; both now expand at xl. Check the header at 1024 and 1200px with the spec's `navigation.starter.header`, not the 3-item example menu.
 
 ## Loop
 
