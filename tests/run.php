@@ -77,6 +77,10 @@ foreach ([
 ] as $path) {
     $check("block write {$path}", denied(hook($hook, $scholix, $write($scholix.'/'.$path), $theme, $home)));
 }
+foreach (['Write', 'Edit', 'MultiEdit'] as $tool) {
+    $check("block {$tool} build-plan.json", denied(hook($hook, $scholix, ['tool_name' => $tool, 'tool_input' => ['file_path' => $scholix.'/specs/themes/new-sdd-theme/build-plan.json', 'content' => '{}']], $theme, $home)));
+}
+$check('allow write next to the build plan', hook($hook, $scholix, $write($scholix.'/specs/themes/new-sdd-theme/notes.md'), $theme, $home) === '');
 foreach (['Edit', 'MultiEdit', 'NotebookEdit'] as $tool) {
     $check("block {$tool} core", denied(hook($hook, $scholix, ['tool_name' => $tool, 'tool_input' => ['file_path' => $scholix.'/routes/web.php', 'notebook_path' => $scholix.'/routes/web.php']], $theme, $home)));
 }
@@ -105,6 +109,11 @@ foreach ([
     'cp -t resources/views/themes/new-sdd-theme/ui resources/views/themes/base/ui/page.blade.php',
     'git branch', 'git branch -a', 'git branch --list "theme/*"', 'git log --oneline -5', 'cat README.md 2>&1 | head -3',
     'echo x >> resources/views/themes/new-sdd-theme/x.txt', 'grep -c "a > b" README.md', 'ls >&2', 'rg --files app',
+    // The build plan: every option Claude uses.
+    'php artisan theme:plan new-sdd-theme', 'php artisan theme:plan new-sdd-theme --json', 'php artisan theme:plan new-sdd-theme --next=5',
+    'php artisan theme:plan new-sdd-theme --validate --next=5', 'php artisan theme:plan new-sdd-theme --attempt=page.events',
+    'php artisan theme:plan new-sdd-theme --reworked=foundation,layout', 'php artisan theme:plan new-sdd-theme --diff',
+    'php artisan theme:plan new-sdd-theme --validate --complete --json', 'cat specs/themes/new-sdd-theme/build-plan.json',
 ] as $command) {
     $check("allow bash: {$command}", hook($hook, $scholix, $bash($command), $theme, $home) === '');
 }
@@ -134,6 +143,11 @@ foreach ([
     'sed -i s/a/b/ routes/web.php', 'cp resources/views/themes/new-sdd-theme/x.css resources/views/themes/default/x.css',
     'rm .claude/sdd-theme', 'git checkout -- app/', 'cat $(echo app/x)', 'php -r "file_put_contents(1,1);"', 'node -e "1"',
     'grep -rn x app | tee app/out.txt', 'find app -name x -delete', 'curl -o app/x https://example.test', 'FOO=1 ls',
+    // The build plan is theme:plan's record: no hand edits, no reset of the fix cap.
+    'php artisan theme:plan new-sdd-theme --unblock=page.events', 'php artisan theme:plan new-sdd-theme --unblock page.events',
+    'echo {} > specs/themes/new-sdd-theme/build-plan.json', 'rm specs/themes/new-sdd-theme/build-plan.json',
+    "sed -i 's/blocked/done/' specs/themes/new-sdd-theme/build-plan.json", 'cp x.json specs/themes/new-sdd-theme/build-plan.json',
+    'tee specs/themes/new-sdd-theme/BUILD-PLAN.json', 'php artisan theme:plan new-sdd-theme --env=production',
 ] as $command) {
     $check("block bash: {$command}", denied(hook($hook, $scholix, $bash($command), $theme, $home)));
 }
@@ -158,7 +172,7 @@ $check('allow the supported SDD contract (real Scholix)', hook($hook, $scholix, 
 
 // P6: every command the workflow tells Claude to run passes the hook, and every human step is refused.
 // Commands are read from the Claude-facing files, so docs and guard can't drift apart.
-$humanSteps = ["php artisan theme:sdd {$theme}", 'php artisan theme:sdd --stop', 'php artisan theme:page-contracts', 'git checkout', 'git commit', 'git push'];
+$humanSteps = ["php artisan theme:sdd {$theme}", 'php artisan theme:sdd --stop', 'php artisan theme:page-contracts', "php artisan theme:plan {$theme} --unblock", 'git checkout', 'git commit', 'git push'];
 $workflowCommands = [];
 foreach (array_merge(glob($plugin.'/commands/*.md'), [$plugin.'/skills/scholix-theme-rules/SKILL.md']) as $doc) {
     $text = (string) file_get_contents($doc);

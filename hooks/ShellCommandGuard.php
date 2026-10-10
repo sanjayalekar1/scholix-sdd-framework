@@ -41,6 +41,8 @@ final class ShellCommandGuard
         'theme:preview' => ['--page', '--console', '--screenshots'],
         'theme:spec-lint' => ['--approved', '--json'],
         'theme:spec-apply' => [],
+        // --unblock is a human step: it resets the fix-attempt cap.
+        'theme:plan' => ['--validate', '--next', '--attempt', '--reworked', '--diff', '--complete', '--json'],
         'theme:sdd' => [], // status only: switching on/off is a human step
         'theme:make' => ['--extends', '--theme-version', '--override', '--purchased-template', '--force'],
         'test' => ['--filter', '--testsuite', '--group', '--exclude-group', '--stop-on-failure', '--stop-on-error', '--compact', '--parallel', '--processes', '--profile'],
@@ -357,6 +359,10 @@ final class ShellCommandGuard
 
         $refused = array_diff(array_keys($options), self::ARTISAN[$command], self::ARTISAN_GLOBAL);
 
+        if ($command === 'theme:plan' && in_array('--unblock', $refused, true)) {
+            return 'php artisan theme:plan --unblock is a human step: a blocked unit failed its fix attempts and a person decides what happens next';
+        }
+
         return $refused === []
             ? null
             : "php artisan {$command} ".implode(' ', $refused).' is not allowed during theme work (allowed options: '.(implode(' ', self::ARTISAN[$command]) ?: 'none').')';
@@ -559,9 +565,21 @@ final class ShellCommandGuard
             return null; // outside the repository (scratch files)
         }
 
-        $reason = ThemeBoundary::violation($this->theme, $relative);
+        $reason = ThemeBoundary::violation($this->theme, $relative) ?? self::generatedFileReason($this->theme, $relative);
 
         return $reason === null ? null : "{$what} {$relative}: {$reason}";
+    }
+
+    /**
+     * Files inside the boundary that only a Scholix command may write: the
+     * build plan is theme:plan's record of what was verified, so Claude
+     * can't mark a unit done, clear a stale one or reset fix attempts by hand.
+     */
+    public static function generatedFileReason(string $theme, string $relative): ?string
+    {
+        return strcasecmp(ltrim(str_replace('\\', '/', $relative), '/'), "specs/themes/{$theme}/build-plan.json") === 0
+            ? 'the build plan is written only by php artisan theme:plan (never by hand): use --attempt, --reworked or --validate'
+            : null;
     }
 
     /**

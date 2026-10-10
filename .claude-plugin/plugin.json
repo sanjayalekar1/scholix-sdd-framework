@@ -1,6 +1,6 @@
 {
     "name": "scholix-sdd",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Spec-driven Scholix theme generation: theme spec workflow, theme rules, and a hard write boundary that keeps Claude inside the theme folder while SDD theme mode is on.",
     "author": {
         "name": "Nxtgen Technosolutions"
