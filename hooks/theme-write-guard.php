@@ -46,7 +46,7 @@ if (! is_file($rule)) {
 }
 
 /** Versions of Scholix's SDD contract (App\Support\SddContract::VERSION) this plugin understands. */
-const SUPPORTED_SDD_CONTRACTS = [1];
+const SUPPORTED_SDD_CONTRACTS = [2];
 
 if (! is_file($contract)) {
     $deny('SDD theme mode is on but this Scholix has no app/Support/SddContract.php — it is older than this plugin (supports SDD contract '.implode(', ', SUPPORTED_SDD_CONTRACTS).'). Update Scholix or use a matching plugin version.');
@@ -101,7 +101,7 @@ switch ($tool) {
             exit(0); // outside the repository (scratch files)
         }
 
-        if (($reason = ThemeBoundary::violation($theme, $relative)) !== null) {
+        if (($reason = ThemeBoundary::violation($theme, $relative) ?? ShellCommandGuard::generatedFileReason($theme, $relative)) !== null) {
             $deny("Blocked write to {$relative}: {$reason}. {$describe} If the theme needs core data or a core change, stop and ask a human.");
         }
 

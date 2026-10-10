@@ -3,13 +3,13 @@
 Spec-driven theme generation for Scholix, as a Claude Code plugin (`scholix-sdd`).
 
 It gives Claude:
-- a **workflow**: `/scholix-sdd:spec`, `/scholix-sdd:build`, `/scholix-sdd:check`;
+- a **workflow**: `/scholix-sdd:spec`, `/scholix-sdd:plan`, `/scholix-sdd:build`, `/scholix-sdd:check`, `/scholix-sdd:fix`, `/scholix-sdd:revise`;
 - the **rules** for Scholix themes (skill `scholix-theme-rules`);
 - a **hard write boundary**: while SDD theme mode is on, a PreToolUse hook blocks every write outside the theme's folder.
 
 Scholix itself keeps everything a theme is checked against: theme contracts, `theme:validate` / `theme:preview` / `theme:page-contracts`, the boundary rule (`app/Support/ThemeBoundary.php`), the spec schema and linter (`resources/theme-contracts/spec.schema.json`, `theme:spec-lint`), the CI checks and the theme specs (`specs/themes/{folder}/`). This plugin reads those from the open Scholix project. It doesn't copy them.
 
-**Compatibility.** Scholix versions this interface in `app/Support/SddContract.php`. This plugin supports **SDD contract 1**; the hook refuses theme work against a Scholix with another version, or without the file.
+**Compatibility.** Scholix versions this interface in `app/Support/SddContract.php`. This plugin supports **SDD contract 2** (Scholix with `theme:plan`); the hook refuses theme work against a Scholix with another version, or without the file.
 
 ## Install
 
@@ -34,10 +34,26 @@ php artisan theme:sdd {folder}              # a human switches SDD mode on (Clau
 /scholix-sdd:spec {folder} "premium modern school"
 # a human resolves the TODO(human) items in specs/themes/{folder}/theme.spec.json (+ .md),
 # sets "status": "approved", and php artisan theme:spec-lint {folder} --approved passes
-/scholix-sdd:build {folder}
-/scholix-sdd:check {folder}
+/scholix-sdd:plan {folder}                  # the build plan: units, dependencies, status (specs/themes/{folder}/build-plan.json)
+/scholix-sdd:build {folder}                 # unit by unit; resumable in a new session
+/scholix-sdd:check {folder}                 # every check + the plan gate (theme:plan --validate --complete)
+/scholix-sdd:fix {folder}                   # only the failed units; 3 attempts each, then blocked for a human
 php artisan theme:sdd --stop                # a human switches SDD mode off
 ```
+
+To change the spec mid-build: `/scholix-sdd:revise {folder} "what changes"` sets it back to draft and shows the impact (`theme:plan --diff`). Building stops until a human re-approves. Then `/scholix-sdd:build` reworks the stale units, builds new ones and deletes retired ones.
+
+### What makes it resilient
+
+| Failure | Handled by |
+|---|---|
+| The session ends or runs out of context mid-build | The plan records every unit's status; `/scholix-sdd:build` continues from `theme:plan --next` |
+| Rules forgotten on page 40 | Each unit is small, verified on its own, and re-read from the skill and contracts |
+| The spec changes after the build started | `/scholix-sdd:revise` → `--diff` → re-approval → affected units become `stale` (cleared only by `--reworked`), new ones `todo`, removed ones `obsolete` |
+| A fix that never converges | `--attempt` before every fix; a unit becomes `blocked` after 3, and only a human can `--unblock` it (the hook refuses it to Claude) |
+| Scholix contracts change under a built theme | Each unit stores its contract hashes and the SDD contract version; changed ones become `stale`, and `--complete` fails |
+| A step skipped or a unit hand-marked done | Gates are commands, not instructions: `theme:plan` refuses an unapproved spec, the hook refuses writes to `build-plan.json`, and CI runs `theme:plan --validate --complete`, which re-validates every unit |
+| The `theme:make` placeholder taken for the design | Scaffold views carry a marker; the plan counts them as not built and `theme:validate --strict` reports them |
 
 ## The write boundary
 
@@ -45,8 +61,8 @@ The hook is active only while `{project}/.claude/sdd-theme` exists (written by `
 
 | Tool | Rule |
 |---|---|
-| Write / Edit / MultiEdit / NotebookEdit | only `resources/views/themes/{folder}/`, `specs/themes/{folder}/` |
-| Bash | allowlist only: read-only tools; `mkdir`/`cp`/`mv`/`rm`/`touch`/`tee`/`sed -i`/redirects *into* the theme; read-only `git` (no `--output`, `git branch` lists only); `node --check`; `php -l`; `php artisan theme:validate/theme:preview/theme:spec-lint/test` with an option allowlist, `theme:make {folder}`, `theme:sdd` (status only). Refused: command substitution, env assignments, and options that write elsewhere or run programs (`sed -f`/`w`/`e`, `sort -o`, `uniq` output files, `awk` with `>`/`\|`/`system()`/`-i`, `cp/mv -t`, `find -fprint`, `rg --pre`, `file -C`, artisan `--out`/`--log-junit`/`--coverage-*`/`--env`…) |
+| Write / Edit / MultiEdit / NotebookEdit | only `resources/views/themes/{folder}/`, `specs/themes/{folder}/` (not `build-plan.json`: only `theme:plan` writes it) |
+| Bash | allowlist only: read-only tools; `mkdir`/`cp`/`mv`/`rm`/`touch`/`tee`/`sed -i`/redirects *into* the theme; read-only `git` (no `--output`, `git branch` lists only); `node --check`; `php -l`; `php artisan theme:validate/theme:preview/theme:spec-lint/theme:plan/test` with an option allowlist (`theme:plan --unblock` is a human step), `theme:make {folder}`, `theme:sdd` (status only). Refused: command substitution, env assignments, and options that write elsewhere or run programs (`sed -f`/`w`/`e`, `sort -o`, `uniq` output files, `awk` with `>`/`\|`/`system()`/`-i`, `cp/mv -t`, `find -fprint`, `rg --pre`, `file -C`, artisan `--out`/`--log-junit`/`--coverage-*`/`--env`…) |
 | PowerShell | blocked |
 | This plugin, `~/.claude` | blocked, so the guard can't be edited or disabled |
 

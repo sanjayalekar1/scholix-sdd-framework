@@ -12,6 +12,7 @@ A Scholix theme is **presentation only**: markup, CSS, JS and assets in one fold
 Only inside the theme, while SDD theme mode is on (`php artisan theme:sdd {folder}`, run by a human):
 - `resources/views/themes/{folder}/`: views, `config/1.0/*.json`, `custom/`, `common/`, `ui/`, `partials/`, `assets/` (CSS, JS, fonts, images)
 - `specs/themes/{folder}/`: the theme spec: `theme.spec.json` (decisions, checked by `php artisan theme:spec-lint {folder}`) and `theme.spec.md` (design narrative). Templates: this skill's `templates/` folder.
+  - `specs/themes/{folder}/build-plan.json` is the exception: `php artisan theme:plan` generates it. Never write it by hand; the hook refuses.
 
 Everything else is Scholix core and is read-only: `app/`, `routes/`, `config/`, `database/`, other themes, `themes/base` and `themes/shared`, `resources/theme-contracts/`, CI, Docker and `.claude/`. The `scholix-sdd` hook blocks those writes, and CI fails the PR if any slip through.
 
@@ -63,15 +64,39 @@ The five existing themes have as-built specs in `specs/themes/{default,theme2,th
 11. **Platform features were missing in three of five themes.** theme3–5 had no language switcher, theme2–5 no WhatsApp button though every admin asks for the number, theme3–5 no platform credit (rule 13). Previews show a second language and the credit, so check the switcher and footer in the screenshots.
 12. **Size the header for the full starter menu.** theme3 and theme4 overflowed between 992 and 1199px with 7 items plus their buttons; both now expand at xl. Check the header at 1024 and 1200px with the spec's `navigation.starter.header`, not the 3-item example menu.
 
+## Workflow
+
+`/scholix-sdd:spec` → (human approves) → `/scholix-sdd:plan` → `/scholix-sdd:build` (resumable, unit by unit) → `/scholix-sdd:check` → `/scholix-sdd:fix` (capped) → `/scholix-sdd:check`. When the spec has to change mid-build, use `/scholix-sdd:revise` → (human re-approves) → `/scholix-sdd:build`.
+
+**The build plan** (`specs/themes/{folder}/build-plan.json`, written by `theme:plan`) splits the theme into units: `foundation`, `layout`, `ui.*`, `home.*`, `section.*` and `page.*`, each with its files, dependencies and input hashes. Unit status:
+
+| Status | Meaning | What to do |
+|---|---|---|
+| `todo` | not built yet (or still the `theme:make` placeholder) | build it |
+| `built` | has its own view, not yet verified | `--validate` |
+| `done` | verified: no problems | — |
+| `failed` | problems listed | `/scholix-sdd:fix`; record each try with `--attempt` |
+| `stale` | a spec decision or contract it is built from changed (`changed_inputs`) | update it for that change, then `--reworked` |
+| `obsolete` | no longer part of the theme | delete its files |
+| `blocked` | more than 3 fix attempts | stop; a human decides |
+
+Rules that keep the plan honest:
+- **Gates:** `theme:plan` refuses while the spec isn't approved, so a spec under revision stops the build. `--complete` (run in `/scholix-sdd:check` and in CI) fails unless every unit is `done` against the current spec, contracts and SDD contract version.
+- **Stale is cleared only by rework:** a stale unit stays stale through validation until you run `--reworked`. Passing validation doesn't mean it follows the changed decision.
+- **Fixes are capped:** record each fix attempt **before** making it. Past the cap, report the unit; don't look for another way around it.
+
 ## Loop
 
 ```
 php artisan theme:spec-lint {folder} --approved                   # the spec gate (a human approves the spec)
+php artisan theme:plan {folder} --next=5                          # the plan; the next units, dependencies first
 php artisan theme:make {folder}                                   # first time only
-php artisan theme:spec-apply {folder}                             # config files from the spec
-php artisan theme:validate {folder} --render --coverage --strict  # fix until 0 problems (add --json for a machine-readable report)
+php artisan theme:spec-apply {folder}                             # config files from the spec (the foundation unit)
+php artisan theme:plan {folder} --validate --next=5               # validate, record done/failed per unit, show what's next
+php artisan theme:validate {folder} --render --coverage --strict  # the full report (add --json for a machine-readable one)
 php artisan theme:preview {folder} --console --screenshots        # 0 JS errors; screenshots for human review
 php artisan theme:spec-lint {folder}                              # the theme still matches its spec
+php artisan theme:plan {folder} --validate --complete             # the done gate
 ```
 
 The shell guard allows only what this loop needs. Commands or options that write outside the theme or run other programs are refused, for example `sed -i` outside the theme, `sort -o`, `git --output`, `awk` with `>`/`|`/`system()`, and artisan options such as `--out`, `--log-junit` or `--env`. If a command is refused, use the Write/Edit tools or ask a human.
@@ -84,6 +109,7 @@ The shell guard allows only what this loop needs. Commands or options that write
 - [ ] Layout with the shell partials; navigation and footer
 - [ ] Every public page of supported modules rendered by the theme; UI kit 5/5
 - [ ] `theme:validate --render --coverage --strict` = 0 problems
+- [ ] `theme:plan {folder} --validate --complete` passes: every unit done against the current spec and contracts, none stale or blocked
 - [ ] `php artisan test` green
 - [ ] `theme:preview --console` = 0 JS errors; screenshots reviewed at 375/768/1440 (human)
 - [ ] Accessibility checked: labels, focus, alt text, contrast of the rendered pages (human)
